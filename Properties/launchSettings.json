@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "codeanalyser.ai": {
+      "commandName": "Project",
+      "commandLineArgs": "gcaic C:\\pocs\\dapr\\dapr-sample\\dapr-bindings\\dapr-bindings\\ecom.notification\\ecom.notification.infrastructure\\Services\\Email"
+    }
+  }
+}
