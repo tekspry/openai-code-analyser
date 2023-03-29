@@ -42,7 +42,7 @@ namespace codeanalyser.ai
             try
             {   
                 List<string> fileExclusionList = AppConfig.Configuration.GetSection("CodeAnalysisFileSettings:fileExclusionList").Get<List<string>>();
-                var supportedFileExtensions = AppConfig.Configuration.GetSection("CodeAnalysisFileSettings:supportedFileExtensions").Get<string[]>();
+                var supportedFileExtensions = AppConfig.Configuration.GetSection("CodeAnalysisFileSettings:SupportedFileExtensions").Get<string[]>();
                 
                 string[] files = Directory.GetFiles(rootFolder, "*", SearchOption.AllDirectories);                
 
@@ -172,7 +172,6 @@ namespace codeanalyser.ai
             {
                 foreach (var token in result.Completions)
                 {
-                    //Console.WriteLine(choice);
                     File.AppendAllText($"{outputPath}{fileName}", token.ToString());
                 }
             }, prompt, maxTokens: maxTokens, temperature: temperature, presencePenalty: presencePenalty, frequencyPenalty: frequencyPenalty, model: Model.Davinci);
