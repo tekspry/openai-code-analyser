@@ -40,14 +40,14 @@ namespace codeanalyser.ai
 
             AppConfig.Configuration = builder.Build();
 
-            List<string> allFiles = await GetAllFiles(folderPath, (CodeOperation)operationEnum);
+            List<string> allFiles = await GetAllFiles(folderPath);
 
             await AnalyzeAllFiles(allFiles, (CodeOperation)operationEnum);
 
             Console.WriteLine("Operation executed!!");
         }
 
-        static async Task<List<string>> GetAllFiles(string rootFolder, CodeOperation operation)
+        public static async Task<List<string>> GetAllFiles(string rootFolder)
         {
             var allFiles = new List<string>();
                         
@@ -71,7 +71,7 @@ namespace codeanalyser.ai
                 {
                     if (!directory.Contains("codeanalysis"))
                     {
-                        List<string> subFolderFiles = await GetAllFiles(directory, operation);
+                        List<string> subFolderFiles = await GetAllFiles(directory);
                         allFiles.AddRange(subFolderFiles);
                     }
                 }
@@ -162,7 +162,7 @@ namespace codeanalyser.ai
                 var openAICompletionsSettings = AppConfig.Configuration.GetSection("OpenAICompletionsSettings");
 
                 // Authentication settings
-                var apiKey = openAIAuthSettings["OpenApiKey"];
+                var apiKey = openAIAuthSettings["OpenAIKey"];
 
                 // OpenAI API completion parameters
                 var maxTokens = int.Parse(openAICompletionsSettings["maxTokens"]);
