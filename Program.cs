@@ -22,15 +22,27 @@ namespace codeanalyser.ai
                 folderPath = args[1];
             }
 
+             if (!Enum.TryParse(typeof(CodeOperation), operation, out var operationEnum))
+            {
+                Console.WriteLine("Invalid operation. Please provide a valid operation");
+                return;
+            }
+
+            if (!Directory.Exists(folderPath))
+            {
+                Console.WriteLine($"Folder path {folderPath} does not exist. Please provide a valid folder path");
+                return;
+            }
+
             var builder = new ConfigurationBuilder()
                            .SetBasePath(Directory.GetCurrentDirectory())
                            .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
 
             AppConfig.Configuration = builder.Build();
 
-            List<string> allFiles = await GetAllFiles(folderPath, (CodeOperation)Enum.Parse(typeof(CodeOperation), operation));
+            List<string> allFiles = await GetAllFiles(folderPath, (CodeOperation)operationEnum);
 
-            await AnalyzeAllFiles(allFiles, (CodeOperation)Enum.Parse(typeof(CodeOperation), operation));
+            await AnalyzeAllFiles(allFiles, (CodeOperation)operationEnum);
 
             Console.WriteLine("Operation executed!!");
         }
@@ -82,49 +94,40 @@ namespace codeanalyser.ai
 
                 foreach (string filePath in filePaths)
                 {  
-                    string directoryPath = Path.GetDirectoryName(filePath) + "\\" + codeAnalysisFilePath + "\\";
+                    string directoryPath = Path.Combine(Path.GetDirectoryName(filePath), codeAnalysisFilePath);
 
-                    if (!Directory.Exists(directoryPath))
-                    {
-                        Directory.CreateDirectory(directoryPath);
-                    }
+                    Directory.CreateDirectory(directoryPath);
 
-                    var code = string.Empty;
-                    code = File.ReadAllText(filePath);
+                    var code = await File.ReadAllTextAsync(filePath);
                     Console.WriteLine();
-                    Console.WriteLine(Path.GetFileName(filePath) + ": execution started...");
+                    Console.WriteLine($"{Path.GetFileName(filePath)}: execution started...");
 
-                    var outputPath = directoryPath + Path.GetFileNameWithoutExtension(filePath);
+                    var outputPath = Path.Combine(directoryPath, Path.GetFileNameWithoutExtension(filePath));
 
                     string fileExtension = Path.GetExtension(filePath);
                     
                     switch (operation)
                     {
                         case CodeOperation.gcaic:
-
-                            await ExecuteAnalysis(codeAnalysisFileName, 
-                            string.Concat(codeAnalysisPrompt.Replace("###", fileExtension, StringComparison.OrdinalIgnoreCase), $" \n {code} \n"), outputPath);
-                            await ExecuteAnalysis(improvedCodeFileName, 
-                            string.Concat(codegeneratePrompt.Replace("###", fileExtension, StringComparison.OrdinalIgnoreCase), $" \n {code} \n"), outputPath);
-
+                            await ExecuteAnalysis(codeAnalysisFileName,
+                                string.Concat(codeAnalysisPrompt.Replace("###", Path.GetExtension(filePath), StringComparison.OrdinalIgnoreCase), $" \n {code} \n"), outputPath);
+                            await ExecuteAnalysis(improvedCodeFileName,
+                                string.Concat(codegeneratePrompt.Replace("###", Path.GetExtension(filePath), StringComparison.OrdinalIgnoreCase), $" \n {code} \n"), outputPath);
                             break;
-
                         case CodeOperation.gca:
-                            await ExecuteAnalysis(codeAnalysisFileName, 
-                            string.Concat(codeAnalysisPrompt.Replace("###", fileExtension, StringComparison.OrdinalIgnoreCase), $" \n {code} \n"), outputPath);
-
+                            await ExecuteAnalysis(codeAnalysisFileName,
+                                string.Concat(codeAnalysisPrompt.Replace("###", Path.GetExtension(filePath), StringComparison.OrdinalIgnoreCase), $" \n {code} \n"), outputPath);
                             break;
-
                         case CodeOperation.gic:
-                            await ExecuteAnalysis(improvedCodeFileName, 
-                            string.Concat(codegeneratePrompt.Replace("###", fileExtension, StringComparison.OrdinalIgnoreCase), $" \n {code} \n"), outputPath);
-
+                            await ExecuteAnalysis(improvedCodeFileName,
+                                string.Concat(codegeneratePrompt.Replace("###", Path.GetExtension(filePath), StringComparison.OrdinalIgnoreCase), $" \n {code} \n"), outputPath);
                             break;
                         case CodeOperation.clearca:
                             if (Directory.Exists(directoryPath))
+                            {
                                 Directory.Delete(directoryPath, true);
-                            
-                            break;                        
+                            }
+                            break;
                         default:
                             Console.WriteLine("Unsupported operation");
                             break;
@@ -137,7 +140,6 @@ namespace codeanalyser.ai
             {
                 Console.WriteLine(ex.Message);
             }
-
         }
 
         private static void GetConfiguration(out string codeAnalysisFilePath, out string codeAnalysisFileName, out string improvedCodeFileName, out string codeAnalysisPrompt, out string codegeneratePrompt)
@@ -154,27 +156,43 @@ namespace codeanalyser.ai
 
         private static async Task ExecuteAnalysis(string fileName, string prompt, string outputPath)
         {
-            //auth settings
-            var apikey = AppConfig.Configuration.GetSection("OpenAIAuthSettings")["OpenApiKey"];
-
-            //openai api completion parameters
-            var maxTokens = Convert.ToInt32(AppConfig.Configuration.GetSection("OpenAICompletionsSettings")["maxTokens"]);
-            var temperature = Convert.ToDouble(AppConfig.Configuration.GetSection("OpenAICompletionsSettings")["temperature"]);
-            var presencePenalty = Convert.ToDouble(AppConfig.Configuration.GetSection("OpenAICompletionsSettings")["presencePenalty"]);
-            var frequencyPenalty = Convert.ToDouble(AppConfig.Configuration.GetSection("OpenAICompletionsSettings")["frequencyPenalty"]);
-
-            var api = new OpenAIClient(apikey);
-
-            File.WriteAllText($"{outputPath}{fileName}", string.Empty);
-
-
-            await api.CompletionsEndpoint.StreamCompletionAsync(result =>
+            try
             {
-                foreach (var token in result.Completions)
+                var openAIAuthSettings = AppConfig.Configuration.GetSection("OpenAIAuthSettings");
+                var openAICompletionsSettings = AppConfig.Configuration.GetSection("OpenAICompletionsSettings");
+
+                // Authentication settings
+                var apiKey = openAIAuthSettings["OpenApiKey"];
+
+                // OpenAI API completion parameters
+                var maxTokens = int.Parse(openAICompletionsSettings["maxTokens"]);
+                var temperature = double.Parse(openAICompletionsSettings["temperature"]);
+                var presencePenalty = double.Parse(openAICompletionsSettings["presencePenalty"]);
+                var frequencyPenalty = double.Parse(openAICompletionsSettings["frequencyPenalty"]);
+
+                // Instantiate OpenAIClient
+                var openAIClient = new OpenAIClient(apiKey);
+
+                // Create an empty file
+                File.WriteAllText($"{outputPath}{fileName}", string.Empty);
+                // Stream completion results and write to file
+                await openAIClient.CompletionsEndpoint.StreamCompletionAsync(result =>
                 {
-                    File.AppendAllText($"{outputPath}{fileName}", token.ToString());
-                }
-            }, prompt, maxTokens: maxTokens, temperature: temperature, presencePenalty: presencePenalty, frequencyPenalty: frequencyPenalty, model: Model.Davinci);
+                    foreach (var token in result.Completions)
+                    {
+                        File.AppendAllText($"{outputPath}{fileName}", token.ToString());
+                    }
+                }, prompt, maxTokens: maxTokens, temperature: temperature, presencePenalty: presencePenalty, frequencyPenalty: frequencyPenalty, model: Model.Davinci);
+            }
+            catch (Exception ex)
+            {
+                 Console.WriteLine($"Error executing analysis: {ex.Message}");
+            }
+        }
+
+        private static bool TryParseOperation(string operation, out CodeOperation operationEnum)
+        {
+            return Enum.TryParse(operation, out operationEnum);
         }
     }
 }
