@@ -27,3 +27,7 @@ Currently this utility support 4 operations
 2. gic - generate improved version of analyzed code
 3. gcaic - generate code analysis reprot along with improved code
 4. clearca - to clear all code analysis files
+
+## License
+
+This project is released under the MIT License.```
