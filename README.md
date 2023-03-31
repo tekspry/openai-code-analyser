@@ -30,4 +30,4 @@ Currently this utility support 4 operations
 
 ## License
 
-This project is released under the MIT License.```
+This project is released under the MIT License.
